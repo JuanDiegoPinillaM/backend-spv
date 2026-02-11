@@ -5,22 +5,24 @@ import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { UserRole } from '../../users/schemas/user.schema';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Branches')
+@ApiBearerAuth() // 🔒 Candado activado
 @Controller('branches')
-// 🔒 1. Todo este controlador requiere Token
 @UseGuards(JwtAuthGuard, RolesGuard) 
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Post()
-  // 🔒 2. Solo el DUEÑO puede crear sedes
-  @Roles(UserRole.OWNER) 
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Crear una nueva sede (Solo Owner)' }) 
   create(@Body() createBranchDto: CreateBranchDto) {
     return this.branchesService.create(createBranchDto);
   }
 
   @Get()
-  // Todos los logueados pueden ver las sedes (para seleccionarlas)
+  @ApiOperation({ summary: 'Listar todas las sedes' })
   findAll() {
     return this.branchesService.findAll();
   }
