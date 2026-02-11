@@ -1,11 +1,11 @@
 import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
-import { Sale, SaleDocument, SaleItem } from '../schemas/sale.schema'; // Importamos SaleItem
+import { Connection, Model, Types } from 'mongoose'; // Asegúrate de importar Types
+import { Sale, SaleDocument, SaleItem } from '../schemas/sale.schema';
 import { CreateSaleDto } from '../dto/create-sale.dto';
 import { Inventory, InventoryDocument } from '../../inventory/schemas/inventory.schema';
 import { Product, ProductDocument } from '../../products/schemas/product.schema';
-import { UserRole } from '../../users/schemas/user.schema'; // Importa el Enum de Roles
+import { UserRole } from '../../users/schemas/user.schema';
 
 @Injectable()
 export class SalesService {
@@ -16,8 +16,81 @@ export class SalesService {
     @InjectConnection() private connection: Connection,
   ) {}
 
+  // 1. Listar Ventas (Dinámico)
+  async findAll(branchId?: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    
+    // Filtro dinámico: Si hay branchId, filtra. Si no, objeto vacío (trae todo)
+    const filter = branchId ? { branch: branchId } : {};
+
+    const sales = await this.saleModel.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('branch', 'name') // Agregué esto para saber de qué sede es la venta en la lista global
+      .populate('cashier', 'fullName email')
+      .populate('items.product', 'name sku')
+      .exec();
+
+    const total = await this.saleModel.countDocuments(filter);
+
+    return {
+      data: sales,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit)
+    };
+  }
+
+  async findOne(id: string) {
+    const sale = await this.saleModel.findById(id)
+      .populate('branch', 'name address')
+      .populate('cashier', 'fullName')
+      .populate('items.product', 'name price image')
+      .exec();
+
+    if (!sale) throw new NotFoundException('Venta no encontrada');
+    return sale;
+  }
+
+  // 3. Resumen Rápido (Dinámico)
+  async getDailySummary(branchId?: string) {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const matchStage: any = {
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    };
+
+    if (branchId) {
+      // FIX: Intentamos buscar tanto por ObjectId como por String para asegurar compatibilidad
+      matchStage.$or = [
+          { branch: new Types.ObjectId(branchId) }, // Si se guardó bien (ObjectId)
+          { branch: branchId }                      // Si se guardó mal (String)
+      ];
+    }
+
+    const result = await this.saleModel.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: '$total' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    return result[0] || { totalAmount: 0, count: 0 };
+  }
+
+  // ... (El método create se mantiene igual) ...
   async create(createSaleDto: CreateSaleDto, cashierId: string, userBranchId: string, userRole: string) {
-    if (userRole !== UserRole.OWNER) {
+     // ... tu código create existente ...
+     if (userRole !== UserRole.OWNER) {
       if (createSaleDto.branch !== userBranchId) {
         throw new ForbiddenException(
           'Acceso denegado: No puedes registrar ventas en una sede diferente a la asignada.'
@@ -32,7 +105,6 @@ export class SalesService {
       const { branch, items, paymentMethod } = createSaleDto;
       let totalSale = 0;
       
-      // SOLUCIÓN 2: Tipamos explícitamente el array
       const saleItems: SaleItem[] = []; 
 
       for (const item of items) {
@@ -58,14 +130,13 @@ export class SalesService {
         inventory.stock -= item.quantity;
         await inventory.save({ session });
 
-        // SOLUCIÓN 1: Usamos 'price' en lugar de 'basePrice'
         const subtotal = product.price * item.quantity; 
         totalSale += subtotal;
 
         saleItems.push({
-          product: item.product as any, // Cast simple por si Mongoose se queja del tipo ObjectId vs Document
+          product: item.product as any, 
           quantity: item.quantity,
-          price: product.price, // Aquí también corregido a 'price'
+          price: product.price, 
           subtotal,
         });
       }

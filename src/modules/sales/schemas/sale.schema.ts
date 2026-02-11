@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose'; // <--- Importa esto
 import { Branch } from '../../branches/schemas/branch.schema';
 import { User } from '../../users/schemas/user.schema';
 import { Product } from '../../products/schemas/product.schema';
@@ -23,7 +23,7 @@ export class SaleItem {
 
 @Schema({ timestamps: true })
 export class Sale {
-  @Prop({ type: Types.ObjectId, ref: 'Branch', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Branch', required: true })
   branch: Branch | Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
