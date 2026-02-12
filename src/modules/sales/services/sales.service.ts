@@ -60,21 +60,20 @@ export class SalesService {
 
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
-
-    const matchStage: any = {
+    
+    const matchQuery: any = {
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     };
 
     if (branchId) {
-      // FIX: Intentamos buscar tanto por ObjectId como por String para asegurar compatibilidad
-      matchStage.$or = [
-          { branch: new Types.ObjectId(branchId) }, // Si se guardó bien (ObjectId)
-          { branch: branchId }                      // Si se guardó mal (String)
+      matchQuery.$or = [
+        { branch: new Types.ObjectId(branchId) },
+        { branch: branchId }
       ];
     }
 
     const result = await this.saleModel.aggregate([
-      { $match: matchStage },
+      { $match: matchQuery },
       {
         $group: {
           _id: null,
@@ -87,9 +86,7 @@ export class SalesService {
     return result[0] || { totalAmount: 0, count: 0 };
   }
 
-  // ... (El método create se mantiene igual) ...
   async create(createSaleDto: CreateSaleDto, cashierId: string, userBranchId: string, userRole: string) {
-     // ... tu código create existente ...
      if (userRole !== UserRole.OWNER) {
       if (createSaleDto.branch !== userBranchId) {
         throw new ForbiddenException(

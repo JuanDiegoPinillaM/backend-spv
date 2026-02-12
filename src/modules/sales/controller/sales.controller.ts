@@ -47,13 +47,16 @@ export class SalesController {
   }
 
   @Get('dashboard/summary')
-  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.CASHIER)
   @ApiOperation({ summary: 'Resumen financiero del día' })
-  // 👇 ESTE ES EL CAMBIO CLAVE: required: false
   @ApiQuery({ name: 'branchId', required: false, description: 'ID de la sede (Dejar vacío para ver Global)' })
   getSummary(@Request() req, @Query('branchId') queryBranchId?: string) {
     let targetBranchId = req.user.branchId;
-    if (req.user.role === UserRole.OWNER) targetBranchId = queryBranchId;
+    
+    // Si es Owner, permitimos que elija sede o vea todo (undefined)
+    if (req.user.role === UserRole.OWNER) {
+        targetBranchId = queryBranchId; 
+    }
 
     return this.salesService.getDailySummary(targetBranchId);
   }

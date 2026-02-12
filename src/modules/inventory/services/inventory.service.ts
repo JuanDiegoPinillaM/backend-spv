@@ -32,11 +32,42 @@ export class InventoryService {
       .exec();
   }
   
-  // 3. Ver alerta de stock bajo
+  // 🆕 3. Obtener productos con stock para el POS (formato optimizado)
+  async findForPOS(branchId: string) {
+    const inventory = await this.inventoryModel
+      .find({ branch: branchId })
+      .populate('product', 'name sku price image isActive') // Traer todos los datos del producto
+      .exec();
+
+    // Transformar para que el frontend tenga un formato más simple
+    // En lugar de: { product: { _id, name }, stock: 10 }
+    // Devolvemos: { _id, name, sku, price, stock }
+    return inventory
+      .filter(item => {
+        // Solo productos activos
+        const product = item.product as any;
+        return product?.isActive !== false;
+      })
+      .map(item => {
+        const product = item.product as any;
+        return {
+          _id: product._id,
+          sku: product.sku,
+          name: product.name,
+          price: product.price,
+          image: product.image,
+          stock: item.stock,
+          minStock: item.minStock,
+          inventoryId: item._id // Por si necesitas referencia al inventario
+        };
+      });
+  }
+  
+  // 4. Ver alerta de stock bajo
   async findLowStock(branchId: string) {
-      return this.inventoryModel.find({ 
-          branch: branchId,
-          $expr: { $lte: ["$stock", "$minStock"] } // Donde stock <= minStock
-      }).populate('product');
+    return this.inventoryModel.find({ 
+      branch: branchId,
+      $expr: { $lte: ["$stock", "$minStock"] } // Donde stock <= minStock
+    }).populate('product');
   }
 }
