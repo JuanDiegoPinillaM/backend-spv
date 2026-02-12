@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'; // <--- Importar esto
-import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength, IsOptional, IsDateString } from 'class-validator';
 import { UserRole } from '../schemas/user.schema';
 
 export class CreateUserDto {
@@ -28,4 +28,21 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   branchId?: string;
+
+  @ApiProperty({ example: 'CC', enum: ['CC', 'CE', 'PP'] })
+  @IsEnum(['CC', 'CE', 'PP'])
+  documentType: string;
+
+  @ApiProperty({ example: '10203040' })
+  @IsString()
+  documentNumber: string;
+
+  @ApiProperty({ example: '2024-02-12' })
+  @IsDateString()
+  hiringDate: string;
+
+  @ApiProperty({ required: false, example: '2026-02-12' })
+  @IsOptional()
+  @IsDateString()
+  terminationDate?: string;
 }

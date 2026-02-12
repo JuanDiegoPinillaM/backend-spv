@@ -25,7 +25,18 @@ export class User {
   @Prop({ required: true, enum: UserRole, default: UserRole.CASHIER })
   role: string;
 
-  // Referencia a la Sede. Si es OWNER, puede ser null.
+  @Prop({ required: true, enum: ['CC', 'CE', 'PP', 'NIT'], default: 'CC' })
+  documentType: string;
+
+  @Prop({ required: true, unique: true })
+  documentNumber: string;
+
+  @Prop({ required: true })
+  hiringDate: Date; // Fecha de ingreso
+
+  @Prop({ required: false })
+  terminationDate?: Date; // Fecha de salida (opcional)
+
   @Prop({ type: Types.ObjectId, ref: 'Branch', required: false })
   branch: Branch | Types.ObjectId;
 
